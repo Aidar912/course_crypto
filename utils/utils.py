@@ -5,7 +5,6 @@ import joblib
 import numpy as np
 import pandas as pd
 from jose import jwt
-from keras.models import load_model
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -54,7 +53,8 @@ async def load_model(session: Session, model_name: str):
 
     if model_record.type == 'pkl':
         return joblib.load(model_record.path)
-    elif model_record.type == 'h5':
+    elif model_record.type == 'h5' or model_record.type == 'keras':
+        from keras.src.saving import load_model
         return load_model(model_record.path)
     else:
         return None

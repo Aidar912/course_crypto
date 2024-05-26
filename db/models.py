@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -26,6 +28,7 @@ class Model(Base):
     name = Column(String, unique=True)
     path = Column(String)
     type = Column(String)
+    last_update = Column(Date, default=datetime.datetime.now)
 
 
 class User(Base):
