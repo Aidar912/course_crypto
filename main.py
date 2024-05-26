@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 import pandas as pd
+import requests
 from fastapi import FastAPI, HTTPException, Query
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,7 @@ from textblob import TextBlob
 from db.database import engine
 from db.models import Base
 from routers import auth, users, predict, model, currency
-from schemas.schemas import ScrapeRequest, DataResponse
+from schemas.schemas import ScrapeRequest, DataResponse, PriceRequest
 from scraper.scraper.twitter_scraper import Twitter_Scraper
 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -39,6 +40,32 @@ CSV_FILES = {
     "ethereum": "tweets_data/eth_done.csv",
     "near": "tweets_data/near_done.csv",
 }
+
+
+def get_crypto_price(date: str, currency: str) -> float:
+    # Преобразуем дату в формат dd-mm-yyyy
+    date_parts = date.split("-")
+    formatted_date = f"{date_parts[2]}-{date_parts[1]}-{date_parts[0]}"
+
+    API_URL = f"https://api.coingecko.com/api/v3/coins/{currency}/history?date={formatted_date}"
+
+    response = requests.get(API_URL)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code,
+                            detail=f"Ошибка при запросе к API: {response.status_code}")
+
+    data = response.json()
+    try:
+        price = data['market_data']['current_price']['usd']
+        return price
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Цена на указанную дату не найдена")
+
+
+@app.post("/get_price/")
+async def get_price(request: PriceRequest):
+    price = get_crypto_price(request.date, request.currency)
+    return {"date": request.date, "currency": request.currency, "price": price}
 
 
 @app.websocket("/ws")
@@ -123,10 +150,11 @@ async def get_data(key: str, limit: Optional[int] = Query(None, description="Num
     # Ограничиваем количество возвращаемых строк
     if limit is not None:
         df = df.head(limit)
+    else:
+        df = df.head(10)
 
     # Преобразуем данные в формат для ответа, заменяя NaN на пустые строки и преобразуя все значения в строки
     response_data = {
-        "columns": list(df.columns),
         "data": df.fillna("").astype(str).values.tolist()
     }
 

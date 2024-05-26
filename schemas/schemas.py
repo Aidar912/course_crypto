@@ -87,6 +87,10 @@ class CurrencyNames(BaseModel):
     names: List[str]
 
 
+class PriceRequest(BaseModel):
+    date: str
+    currency: str
+
 class ScrapeRequest(BaseModel):
     keyword: str
     query_type: str = "hashtag"
@@ -104,5 +108,4 @@ class PredictionRequest(BaseModel):
 
 
 class DataResponse(BaseModel):
-    columns: List[str]
     data: List[List[str]]
