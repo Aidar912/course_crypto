@@ -92,3 +92,8 @@ class CurrencyData(CurrencyDataBase):
 
 class CurrencyNames(BaseModel):
     names: List[str]
+
+
+class ScrapeRequest(BaseModel):
+    keyword: str
+    query_type: str = "hashtag"
