@@ -1,49 +1,35 @@
-from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from datetime import timedelta
+from schemas import schemas
+from utils import utils , security
+from db import models
 from db.database import get_db
-from db.models import User as DBUser
-from schemas.schemas import UserCreate, Token
-from utils.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from utils.security import create_access_token,ACCESS_TOKEN_EXPIRE_MINUTES
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-router = APIRouter()
+router = APIRouter(
+    tags=["auth"],
+)
 
-def get_user(db: Session, username: str):
-    return db.query(DBUser).filter(DBUser.username == username).first()
 
-def authenticate_user(db: Session, username: str, password: str):
-    user = get_user(db, username)
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-@router.post("/register", response_model=Token, summary="Регистрация нового пользователя", description="Маршрут для регистрации нового пользователя. Возвращает JWT токен.")
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = get_user(db, user.username)
+@router.post("/register", response_model=schemas.Token)
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    db_user = utils.get_user_by_username(db, username=user.username)
     if db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered",
-        )
-    hashed_password = get_password_hash(user.password)
-    db_user = DBUser(username=user.username, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    new_user = utils.create_user(db=db, user=user)
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": new_user.username, "role": new_user.role}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
-
-@router.post("/token", response_model=Token, summary="Получение токена", description="Маршрут для получения JWT токена по логину и паролю.")
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.username, form_data.password)
+@router.post("/token", response_model=schemas.Token)
+def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    user = utils.authenticate_user(db, username=form_data.username, password=form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -52,6 +38,16 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username, "role": user.role}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/make_admin/{user_id}", response_model=schemas.User)
+def make_admin(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_admin_user)):
+    user = utils.get_user(db, user_id=user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = "admin"
+    db.commit()
+    db.refresh(user)
+    return user

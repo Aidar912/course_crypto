@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from typing import Optional
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -9,9 +8,12 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt , JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
+import csv
+from datetime import datetime
+from db import models
 from db.models import Model
 from db.models import User as DBUser
+from schemas import schemas
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -24,29 +26,36 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+def get_user(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+def get_user_by_username(db: Session, username: str):
+    return db.query(models.User).filter(models.User.username == username).first()
 
-def get_user(db: Session, username: str):
-    return db.query(DBUser).filter(DBUser.username == username).first()
+def create_user(db: Session, user: schemas.UserCreate):
+    hashed_password = pwd_context.hash(user.password)
+    db_user = models.User(username=user.username, hashed_password=hashed_password, role="user")
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
 
 def authenticate_user(db: Session, username: str, password: str):
-    user = get_user(db, username)
+    user = get_user_by_username(db, username)
     if not user:
         return False
-    if not verify_password(password, user.hashed_password):
+    if not pwd_context.verify(password, user.hashed_password):
         return False
     return user
 
-
+def update_user_role(db: Session, user_id: int, role: str):
+    user = get_user(db, user_id)
+    if user:
+        user.role = role
+        db.commit()
+        db.refresh(user)
+        return user
+    return None
 
 async def load_model(session: Session, model_name: str):
     model_record = session.query(Model).filter(Model.name == model_name).first()
@@ -108,3 +117,38 @@ def verify_token(token: str = Depends(oauth2_scheme)):
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def process_csv(file):
+    data_list = []
+    csv_reader = csv.DictReader(file, fieldnames=["Timestamp", "Open", "High", "Low", "Close", "Volume (BTC)", "Volume (Currency)", "Weighted Price"])
+    next(csv_reader)  # Skip the header row
+    for row in csv_reader:
+        data = {
+            "date": datetime.utcfromtimestamp(int(row["Timestamp"])).date(),
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume_btc": float(row["Volume (BTC)"]),
+            "volume_currency": float(row["Volume (Currency)"]),
+            "weighted_price": float(row["Weighted Price"]),
+        }
+        data_list.append(data)
+    return data_list
+
+
+def get_currency(db: Session, currency_id: int):
+    return db.query(models.Currency).filter(models.Currency.id == currency_id).first()
+
+def get_currency_by_name(db: Session, name: str):
+    return db.query(models.Currency).filter(models.Currency.name == name).first()
+
+def create_currency(db: Session, currency: models.Currency):
+    db.add(currency)
+    db.commit()
+    db.refresh(currency)
+    return currency
+
+def get_all_currency_names(db: Session):
+    return db.query(models.Currency.name).all()
