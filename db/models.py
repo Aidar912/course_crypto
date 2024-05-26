@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Date, create_engine, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 
 Base = declarative_base()
 
@@ -27,3 +26,11 @@ class Model(Base):
     name = Column(String, unique=True)
     path = Column(String)
     type = Column(String)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    hashed_password = Column(String)

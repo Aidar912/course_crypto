@@ -1,28 +1,38 @@
-from fastapi import FastAPI, Depends, HTTPException,Request
-from sqlalchemy.orm import Session
-from db.database import SessionLocal, engine
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from db.database import engine
 from db.models import Base
-from predictions.predictor import make_prediction
-from schemas.schemas import PredictionRequest
+from routers import auth, users,predict
 
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-app = FastAPI(debug=True)
+app = FastAPI(
+    title="Currency Prediction API",
+    description="API для предсказания курса валют с использованием моделей машинного обучения",
+    version="1.0.0",
+    docs_url="/docs",  # URL для документации Swagger
+    redoc_url="/redoc"  # URL для документации ReDoc
+)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 Base.metadata.create_all(bind=engine)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@app.get("/")
+async def read_root():
+    return {"message": "Добро пожаловать в API предсказания курса валют!"}
 
-@app.post("/predict/")
-async def predict(request: PredictionRequest, db: Session = Depends(get_db)):
-    result = await make_prediction(request, db)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(users.router, prefix="/users", tags=["users"])
+app.include_router(predict.router, prefix="/api", tags=["predict"])
 
 
 
