@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 from datetime import date
@@ -12,13 +12,12 @@ class PredictionRequest(BaseModel):
     class Config:
         from_attributes = True  # Обновлено для Pydantic v2
         protected_namespaces = ()
-
 class User(BaseModel):
     username: str
+    role: str  # Добавляем роль в схему
 
     class Config:
-        from_attributes = True
-        protected_namespaces = ()
+        orm_mode = True
 
 class UserCreate(BaseModel):
     username: str
@@ -34,6 +33,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+    role: Optional[str] = None  # Добавляем роль в схему TokenData
 
 class ModelBase(BaseModel):
     name: str
@@ -89,3 +89,6 @@ class CurrencyData(CurrencyDataBase):
 
     class Config:
         orm_mode = True
+
+class CurrencyNames(BaseModel):
+    names: List[str]

@@ -4,9 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import Model as DBModel
+from db.models import User
 from schemas.schemas import Model, ModelCreate, ModelUpdate
 import os
 import datetime
+
+from utils.security import get_current_admin_user
 
 router = APIRouter()
 
@@ -26,7 +29,8 @@ async def create_model(
     name: str,
     type: str,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
 ):
     if type not in ["pkl", "h5"]:
         raise HTTPException(
@@ -80,7 +84,8 @@ async def read_model(model_id: int, db: Session = Depends(get_db)):
     summary="Обновить модель",
     description="Обновление информации о модели по её идентификатору."
 )
-async def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(get_db)):
+async def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)):
     db_model = db.query(DBModel).filter(DBModel.id == model_id).first()
     if db_model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
@@ -104,7 +109,8 @@ async def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(
     summary="Удалить модель",
     description="Удаление модели по её идентификатору."
 )
-async def delete_model(model_id: int, db: Session = Depends(get_db)):
+async def delete_model(model_id: int, db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)):
     db_model = db.query(DBModel).filter(DBModel.id == model_id).first()
     if db_model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
