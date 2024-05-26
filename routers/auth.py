@@ -13,13 +13,20 @@ router = APIRouter(
     tags=["auth"],
 )
 
-@router.post("/register", response_model=schemas.User)
+
+@router.post("/register", response_model=schemas.Token)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = utils.get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return utils.create_user(db=db, user=user)
 
+    new_user = utils.create_user(db=db, user=user)
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": new_user.username, "role": new_user.role}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 @router.post("/token", response_model=schemas.Token)
 def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     user = utils.authenticate_user(db, username=form_data.username, password=form_data.password)
