@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from typing import Optional
-
 import joblib
 import numpy as np
 import pandas as pd
@@ -9,7 +8,8 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt , JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
+import csv
+from datetime import datetime
 from db.models import Model
 from db.models import User as DBUser
 
@@ -108,3 +108,22 @@ def verify_token(token: str = Depends(oauth2_scheme)):
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def process_csv(file):
+    data_list = []
+    csv_reader = csv.DictReader(file, fieldnames=["Timestamp", "Open", "High", "Low", "Close", "Volume (BTC)", "Volume (Currency)", "Weighted Price"])
+    next(csv_reader)  # Skip the header row
+    for row in csv_reader:
+        data = {
+            "date": datetime.utcfromtimestamp(int(row["Timestamp"])).date(),
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume_btc": float(row["Volume (BTC)"]),
+            "volume_currency": float(row["Volume (Currency)"]),
+            "weighted_price": float(row["Weighted Price"]),
+        }
+        data_list.append(data)
+    return data_list

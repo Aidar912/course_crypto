@@ -18,18 +18,20 @@ class CurrencyData(Base):
     high = Column(Float)
     low = Column(Float)
     close = Column(Float)
-    volume = Column(Float)
+    volume_btc = Column(Float)
+    volume_currency = Column(Float)
+    weighted_price = Column(Float)
     currency_id = Column(Integer, ForeignKey('currency.id'))
 
 
 class Model(Base):
-    __tablename__ = 'model'
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
+    __tablename__ = "model"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
     path = Column(String)
     type = Column(String)
     last_update = Column(Date, default=datetime.datetime.now)
-
 
 class User(Base):
     __tablename__ = "users"
