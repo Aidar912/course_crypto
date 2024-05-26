@@ -90,10 +90,10 @@ async def update_model(model_id: int, model: ModelUpdate, db: Session = Depends(
     if db_model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
 
-    if model.type not in ["pkl", "h5"]:
+    if model.type not in ["pkl", "h5","keras"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid type. Must be 'pkl' or 'h5'."
+            detail="Invalid type. Must be 'pkl' or 'h5' or 'keras'."
         )
 
     db_model.name = model.name
