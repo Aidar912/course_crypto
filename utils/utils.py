@@ -4,7 +4,9 @@ from typing import Optional
 import joblib
 import numpy as np
 import pandas as pd
-from jose import jwt
+from fastapi import Depends, HTTPException , status
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt , JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,7 @@ from db.models import Model
 from db.models import User as DBUser
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 SECRET_KEY = "courseWork21"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -87,3 +89,22 @@ def safe_convert_to_jsonable(data):
     if isinstance(data, (np.int32, np.int64)):
         return int(data)
     return data
+
+
+def verify_token(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return username
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
