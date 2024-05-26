@@ -1,18 +1,19 @@
-import os
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
-import json
-from textblob import TextBlob
-from schemas.schemas import ScrapeRequest
-from scraper.scraper.twitter_scraper import Twitter_Scraper
-import os
 import asyncio
+import json
+import os
+from typing import Optional
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Query
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from textblob import TextBlob
+
 from db.database import engine
 from db.models import Base
 from routers import auth, users, predict, model, currency
+from schemas.schemas import ScrapeRequest, DataResponse
+from scraper.scraper.twitter_scraper import Twitter_Scraper
 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
@@ -33,45 +34,12 @@ app.add_middleware(
 )
 Base.metadata.create_all(bind=engine)
 
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return """
-    <html>
-        <head>
-            <title>Twitter Scraper</title>
-        </head>
-        <body>
-            <h1>Twitter Scraper</h1>
-            <form action="" onsubmit="sendMessage(event)">
-                <input type="text" id="keyword" placeholder="Enter keyword" required>
-                <select id="query_type">
-                    <option value="hashtag">Hashtag</option>
-                    <option value="username">Username</option>
-                    <option value="query">Query</option>
-                </select>
-                <button type="submit">Start Scraping</button>
-            </form>
-            <ul id="tweets"></ul>
-            <script>
-                const ws = new WebSocket("ws://localhost:8000/ws");
+CSV_FILES = {
+    "bitcoin": "tweets_data/btc_done.csv",
+    "ethereum": "tweets_data/eth_done.csv",
+    "near": "tweets_data/near_done.csv",
+}
 
-                ws.onmessage = function(event) {
-                    const tweets = document.getElementById("tweets");
-                    const tweet = document.createElement("li");
-                    tweet.innerText = event.data;
-                    tweets.appendChild(tweet);
-                };
-
-                function sendMessage(event) {
-                    event.preventDefault();
-                    const keyword = document.getElementById("keyword").value;
-                    const query_type = document.getElementById("query_type").value;
-                    ws.send(JSON.stringify({ keyword, query_type }));
-                }
-            </script>
-        </body>
-    </html>
-    """
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -137,6 +105,32 @@ async def scrape_tweets_continuously(request: ScrapeRequest, websocket: WebSocke
                 print(f"Error while sending tweet: {e}")
                 return
         await asyncio.sleep(1)  # Небольшая задержка, чтобы избежать быстрого цикла
+
+
+
+@app.get("/tweets/{key}", response_model=DataResponse)
+async def get_data(key: str, limit: Optional[int] = Query(None, description="Number of rows to return")):
+    # Проверяем наличие ключа
+    if key not in CSV_FILES:
+        raise HTTPException(status_code=404, detail="Key not found")
+
+    # Читаем соответствующий CSV-файл
+    try:
+        df = pd.read_csv(CSV_FILES[key])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Ограничиваем количество возвращаемых строк
+    if limit is not None:
+        df = df.head(limit)
+
+    # Преобразуем данные в формат для ответа, заменяя NaN на пустые строки и преобразуя все значения в строки
+    response_data = {
+        "columns": list(df.columns),
+        "data": df.fillna("").astype(str).values.tolist()
+    }
+
+    return response_data
 
 app.include_router(model.router, prefix="/api/models", tags=["Models"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

@@ -101,3 +101,8 @@ class PredictionRequest(BaseModel):
     class Config:
         from_attributes = True  # Обновлено для Pydantic v2
         protected_namespaces = ()
+
+
+class DataResponse(BaseModel):
+    columns: List[str]
+    data: List[List[str]]
