@@ -96,7 +96,7 @@ class PredictionRequest(BaseModel):
     date: str
     symbol: str
     interval: str
-    modelPath: str
+    model_name: str
 
     class Config:
         from_attributes = True  # Обновлено для Pydantic v2

@@ -57,6 +57,13 @@ def update_user_role(db: Session, user_id: int, role: str):
         return user
     return None
 
+def get_model_path_by_name(db: Session, name: str):
+    model = db.query(Model).filter(Model.name == name).first()
+    if model:
+        return model.path
+    return None
+
+
 async def load_model(session: Session, model_name: str):
     model_record = session.query(Model).filter(Model.name == model_name).first()
     if model_record is None:
