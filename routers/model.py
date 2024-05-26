@@ -23,19 +23,18 @@ if not os.path.exists(UPLOAD_DIRECTORY):
     response_model=Model,
     status_code=status.HTTP_201_CREATED,
     summary="Создать модель",
-    description="Создание новой модели с загрузкой файла модели и указанием типа (pkl или h5)."
+    description="Создание новой модели с загрузкой файла модели и указанием типа (pkl или h5 или keras)."
 )
 async def create_model(
     name: str,
     type: str,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    db: Session = Depends(get_db)
 ):
-    if type not in ["pkl", "h5"]:
+    if type not in ["pkl", "h5", "keras"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid type. Must be 'pkl' or 'h5'."
+            detail="Invalid type. Must be 'pkl' or 'h5' or 'keras'."
         )
 
     db_model = db.query(DBModel).filter(DBModel.name == name).first()

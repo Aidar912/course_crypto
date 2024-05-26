@@ -12,10 +12,16 @@ def create_dataset(dataset, time_step=1):
         dataY.append(dataset[i + time_step, 0])
     return np.array(dataX), np.array(dataY)
 
-def make_lstm_prediction(date_curr, currency_name, interval):
+def make_lstm_prediction(date_curr, currency_name, interval , modelPath):
     import numpy as np
     from keras.src.saving import load_model
     current_date = datetime.now()
+    if modelPath.endswith('.h5'):
+        model = load_model(modelPath)
+    elif modelPath.endswith('.keras'):
+        model = load_model(modelPath)
+    else:
+        raise ValueError("Unsupported model file format. Please use '.keras' or '.h5' format.")
 
     # Преобразовать дату в строку в нужном формате
     formatted_date = current_date.strftime('%Y-%m-%d')
@@ -29,7 +35,6 @@ def make_lstm_prediction(date_curr, currency_name, interval):
                        interval=interval)
     if data.empty:
         raise ValueError(f"No price data found for pepe in the specified period.")
-    print(data.info())
     data['Target'] = data['Adj Close'] - data['Open']
     data['Target'] = data['Target'].shift(-1)
 
@@ -45,7 +50,7 @@ def make_lstm_prediction(date_curr, currency_name, interval):
     else:
         data.drop(['Volume', 'Close', 'Datetime'], axis=1, inplace=True)
     # Загрузка модели из файла
-    model = load_model("../../models/lstm_BTC-USD_1h_2024-05-26.keras")
+    model = load_model(modelPath)
     # Прогноз на следующий день
     scaler = MinMaxScaler(feature_range=(0, 1))
     data_set = scaler.fit_transform(np.array(data).reshape(-1, 1))
@@ -65,8 +70,9 @@ def make_lstm_prediction(date_curr, currency_name, interval):
     predictions = scaler.inverse_transform(
         predictions)  # Обратное преобразование для получения исходного масштаба значений
 
-    print(predictions[-1])
+    predictions_response = predictions[-1]
+    print(predictions_response[0])
+    return float(predictions_response[0])
 
 
-make_lstm_prediction("2024-05-25", 'BTC-USD', '1h')
 

@@ -4,14 +4,7 @@ from pydantic import BaseModel, Field
 from datetime import date
 
 
-class PredictionRequest(BaseModel):
-    model_name: str
-    currency: str
-    date: date
 
-    class Config:
-        from_attributes = True  # Обновлено для Pydantic v2
-        protected_namespaces = ()
 class User(BaseModel):
     username: str
     role: str  # Добавляем роль в схему
@@ -37,7 +30,7 @@ class TokenData(BaseModel):
 
 class ModelBase(BaseModel):
     name: str
-    type: str = Field(..., pattern="^(pkl|h5)$")
+    type: str = Field(..., pattern="^(pkl|h5|keras)$")
 
 class ModelCreate(ModelBase):
     pass
@@ -97,3 +90,14 @@ class CurrencyNames(BaseModel):
 class ScrapeRequest(BaseModel):
     keyword: str
     query_type: str = "hashtag"
+
+
+class PredictionRequest(BaseModel):
+    date: str
+    symbol: str
+    interval: str
+    modelPath: str
+
+    class Config:
+        from_attributes = True  # Обновлено для Pydantic v2
+        protected_namespaces = ()
